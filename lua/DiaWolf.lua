@@ -110,18 +110,28 @@ function M.setup(opts)
 	end, {
 		nargs = "+",
 		desc = "Connect two entities through a relationship",
-		-- Tab-completes entity names for arg 1 and 5, relationship names for arg 3
-		complete = function(_, cmdline)
-			local model = require("diawolf.model").get_model(vim.api.nvim_get_current_buf())
-			if not model then return {} end
-			local argn = #vim.split(cmdline, "%s+", { trimempty = false }) - 1
-			local list = (argn == 3) and model.relationships
-				or (argn == 1 or argn == 5) and model.entities
-				or nil
-			if not list then return {} end
+		-- Tab-completes entity names for arg 1 and 5, cardinalities for arg 2 and 4,
+		-- relationship names for arg 3. Results are filtered by the typed prefix.
+		complete = function(arglead, cmdline, cursorpos)
+			local before = cmdline:sub(1, cursorpos)
+			local argn = #vim.split(before, "%s+", { trimempty = false }) - 1
+
 			local names = {}
-			for _, item in ipairs(list) do names[#names + 1] = item.name end
-			return names
+			if argn == 2 or argn == 4 then
+				names = { "1", "N", "M" }
+			else
+				local model = require("diawolf.model").get_model(vim.api.nvim_get_current_buf())
+				if not model then return {} end
+				local list = (argn == 3) and model.relationships
+					or (argn == 1 or argn == 5) and model.entities
+					or {}
+				for _, item in ipairs(list) do names[#names + 1] = item.name end
+			end
+
+			local lead = arglead:lower()
+			return vim.tbl_filter(function(n)
+				return n:lower():sub(1, #lead) == lead
+			end, names)
 		end,
 	})
 
